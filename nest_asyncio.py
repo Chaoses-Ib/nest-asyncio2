@@ -43,7 +43,13 @@ def _patch_asyncio():
     # Use module level _current_tasks, all_tasks and patch run method.
     if hasattr(asyncio, '_nest_patched'):
         return
-    if sys.version_info >= (3, 6, 0):
+    
+    # Using _PyTask on Python 3.14+ will break current_task() (and all_tasks(),
+    # _swap_current_task())
+    # Even we replace it with _py_current_task(), it only works with _PyTask, but
+    # the external loop is probably using _CTask.
+    # https://github.com/python/cpython/pull/129899
+    if sys.version_info >= (3, 6, 0) and sys.version_info < (3, 14, 0):
         asyncio.Task = asyncio.tasks._CTask = asyncio.tasks.Task = \
             asyncio.tasks._PyTask
         asyncio.Future = asyncio.futures._CFuture = asyncio.futures.Future = \
@@ -127,14 +133,25 @@ def _patch_loop(loop):
             if not handle._cancelled:
                 # preempt the current task so that that checks in
                 # Task.__step do not raise
-                curr_task = curr_tasks.pop(self, None)
+                if sys.version_info < (3, 14, 0):
+                    curr_task = curr_tasks.pop(self, None)
+                else:
+                    # Work with both C and Py
+                    try:
+                        curr_task = asyncio.tasks._swap_current_task(self, None)
+                    except KeyError:
+                        curr_task = None
 
                 try:
                     handle._run()
                 finally:
                     # restore the current task
                     if curr_task is not None:
-                        curr_tasks[self] = curr_task
+                        if sys.version_info < (3, 14, 0):
+                            curr_tasks[self] = curr_task
+                        else:
+                            # Work with both C and Py
+                            asyncio.tasks._swap_current_task(self, curr_task)
 
         handle = None
 

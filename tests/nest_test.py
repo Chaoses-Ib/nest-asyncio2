@@ -1,3 +1,12 @@
+# /// script
+# requires-python = ">=3.5"
+# dependencies = [
+#     "nest-asyncio",
+# ]
+#
+# [tool.uv.sources]
+# nest-asyncio = { path = "../", editable = true }
+# ///
 import asyncio
 import sys
 import unittest
