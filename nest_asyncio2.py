@@ -18,10 +18,7 @@ def apply(loop=None):
     loop = loop or asyncio.get_event_loop()
     _patch_loop(loop)
 
-
-def _patch_asyncio():
-    """Patch asyncio module to use pure Python tasks and futures."""
-
+if sys.version_info < (3, 12, 0):    
     def run(main, *, debug=False):
         loop = asyncio.get_event_loop()
         loop.set_debug(debug)
@@ -33,6 +30,35 @@ def _patch_asyncio():
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     loop.run_until_complete(task)
+else:
+    def run(main, *, debug=False, loop_factory=None):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            if loop_factory is None:
+                loop_factory = asyncio.new_event_loop
+            # if sys.version_info < (3, 16, 0):
+            #     policy = asyncio.events._get_event_loop_policy()
+            #     try:
+            #         loop = policy.get_event_loop()
+            #     except RuntimeError:
+            #         loop = loop_factory()
+            # else:
+            #     loop = loop_factory()
+            loop = loop_factory()
+
+        loop.set_debug(debug)
+        task = asyncio.ensure_future(main, loop=loop)
+        try:
+            return loop.run_until_complete(task)
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    loop.run_until_complete(task)
+
+def _patch_asyncio():
+    """Patch asyncio module to use pure Python tasks and futures."""
 
     def _get_event_loop(stacklevel=3):
         loop = events._get_running_loop()

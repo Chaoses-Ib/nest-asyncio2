@@ -41,3 +41,10 @@ An event loop can be patched whether it is already running
 or not. Only event loops from asyncio can be patched;
 Loops from other projects, such as uvloop or quamash,
 generally can't be patched.
+
+## Comparison with `nest_asyncio`
+`nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
+- Python 3.12 `loop_factory` parameter support
+- Python 3.14 support (`asyncio.current_task()` and others are broken in `nest_asyncio`)
+
+All interfaces are kept as they are. To migrate, you just need to change the package and module name to `nest_asyncio2`.

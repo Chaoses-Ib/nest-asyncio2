@@ -30,6 +30,15 @@ if (!$?) {
     throw "3.14"
 }
 
+uv run --python 3.12 312_loop_factory.py
+if (!$?) {
+    throw "312_loop_factory"
+}
+uv run --python 3.14 312_loop_factory.py
+if (!$?) {
+    throw "314_loop_factory"
+}
+
 uv run --python 3.14 314_task.py
 if (!$?) {
     throw "314_task"
