@@ -1,17 +1,17 @@
 # /// script
 # requires-python = ">=3.5"
 # dependencies = [
-#     "nest-asyncio",
+#     "nest-asyncio2",
 # ]
 #
 # [tool.uv.sources]
-# nest-asyncio = { path = "../", editable = true }
+# nest-asyncio2 = { path = "../", editable = true }
 # ///
 import asyncio
 import sys
 import unittest
 
-import nest_asyncio
+import nest_asyncio2
 
 
 def exception_handler(loop, context):
@@ -21,7 +21,7 @@ def exception_handler(loop, context):
 class NestTest(unittest.TestCase):
     def setUp(self):
         self.loop = asyncio.new_event_loop()
-        nest_asyncio.apply(self.loop)
+        nest_asyncio2.apply(self.loop)
         asyncio.set_event_loop(self.loop)
         self.loop.set_debug(True)
         self.loop.set_exception_handler(exception_handler)

@@ -1,17 +1,17 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
-#     "nest-asyncio",
+#     "nest-asyncio2",
 # ]
 #
 # [tool.uv.sources]
-# nest-asyncio = { path = "../", editable = true }
+# nest-asyncio2 = { path = "../", editable = true }
 # ///
 import asyncio
-import nest_asyncio
+import nest_asyncio2
 
 async def f():
-    nest_asyncio.apply()
+    nest_asyncio2.apply()
 
     print(asyncio.get_running_loop())
     assert asyncio.get_running_loop() is not None
