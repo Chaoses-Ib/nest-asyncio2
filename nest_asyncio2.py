@@ -15,8 +15,29 @@ def apply(loop=None):
     _patch_policy()
     _patch_tornado()
 
-    loop = loop or asyncio.get_event_loop()
-    _patch_loop(loop)
+    loop = loop or _get_event_loop()
+    if loop is not None:
+        _patch_loop(loop)
+
+if sys.version_info < (3, 12, 0):
+    def _get_event_loop():
+        return asyncio.get_event_loop()
+elif sys.version_info < (3, 14, 0):
+    def _get_event_loop():
+        # Python 3.12~3.13:
+        # Calling get_event_loop() will result in ResourceWarning: unclosed event loop
+        loop = events._get_running_loop()
+        if loop is None:
+            policy = events.get_event_loop_policy()
+            loop = policy._local._loop
+        return loop
+else:
+    def _get_event_loop():
+        # Python 3.14: Raises a RuntimeError if there is no current event loop.
+        try:
+            return asyncio.get_event_loop()
+        except RuntimeError:
+            return None
 
 if sys.version_info < (3, 12, 0):    
     def run(main, *, debug=False):
@@ -32,11 +53,11 @@ if sys.version_info < (3, 12, 0):
                     loop.run_until_complete(task)
 else:
     def run(main, *, debug=False, loop_factory=None):
+        new_event_loop = False
+        set_event_loop = None
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            if loop_factory is None:
-                loop_factory = asyncio.new_event_loop
             # if sys.version_info < (3, 16, 0):
             #     policy = asyncio.events._get_event_loop_policy()
             #     try:
@@ -45,7 +66,14 @@ else:
             #         loop = loop_factory()
             # else:
             #     loop = loop_factory()
-            loop = loop_factory()
+            if loop_factory is None:
+                loop = asyncio.new_event_loop()
+                # Not running
+                set_event_loop = _get_event_loop()
+                asyncio.set_event_loop(loop)
+            else:
+                loop = loop_factory()
+            new_event_loop = True
 
         loop.set_debug(debug)
         task = asyncio.ensure_future(main, loop=loop)
@@ -56,6 +84,12 @@ else:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     loop.run_until_complete(task)
+            if set_event_loop:
+                # asyncio.Runner just set_event_loop(None) but we are nested
+                asyncio.set_event_loop(set_event_loop)
+            if new_event_loop:
+                # Avoid ResourceWarning: unclosed event loop
+                loop.close()
 
 def _patch_asyncio():
     """Patch asyncio module to use pure Python tasks and futures."""
@@ -94,9 +128,13 @@ def _patch_asyncio():
 def _patch_policy():
     """Patch the policy to always return a patched loop."""
 
+    # Python 3.14:
+    # get_event_loop() raises a RuntimeError if there is no current event loop.
+    # So there is no need to _patch_loop() in it.
+    # Patching new_event_loop() may be better, but policy is going to be removed...
     # Removed in Python 3.16
     # https://github.com/python/cpython/issues/127949
-    if sys.version_info >= (3, 16, 0):
+    if sys.version_info >= (3, 14, 0):
         return
 
     def get_event_loop(self):

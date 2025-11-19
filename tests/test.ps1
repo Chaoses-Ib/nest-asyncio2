@@ -1,5 +1,23 @@
 ﻿pushd tests
 
+function Test {
+    param(
+        [string]$Py,
+        [string[]]$V
+    )
+
+    foreach ($v in $V) {
+        Write-Host Test: $Py on $v
+        # Catch ResourceWarning: unclosed event loop
+        $out = uv run --python $v $Py 2>&1
+        Write-Output $out
+        if (!$? -or $out -match "Warning") {
+            throw "$Py on $v : $out"
+        }
+        Write-Host
+    }
+}
+
 # uv run --python 3.5 nest_test.py
 uv run --python 3.8 nest_test.py
 if (!$?) {
@@ -39,13 +57,7 @@ if (!$?) {
     throw "314_loop_factory"
 }
 
-uv run --python 3.14 314_task.py
-if (!$?) {
-    throw "314_task"
-}
-uv run --python 3.14 314_task_mix.py
-if (!$?) {
-    throw "314_task_mix"
-}
+Test -V @("3.12", "3.13", "3.14") -Py 314_task.py
+Test -V @("3.12", "3.13", "3.14") -Py 314_task_mix.py
 
 popd

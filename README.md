@@ -44,7 +44,11 @@ generally can't be patched.
 
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
-- Python 3.12 `loop_factory` parameter support
+- Python 3.12 support
+  - `loop_factory` parameter support
+  - Fix `ResourceWarning: unclosed event loop` at exit
+
+    Note that if you call `asyncio.get_event_loop()` on the main thread without setting the loop before, `ResourceWarning` is expected on Python 3.12~3.13, not caused by `nest-asyncio2`.
 - Python 3.14 support
   - Fix broken `asyncio.current_task()` and others
   - Fix `DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16`
