@@ -74,6 +74,7 @@ else:
             else:
                 loop = loop_factory()
             new_event_loop = True
+        _patch_loop(loop)
 
         loop.set_debug(debug)
         task = asyncio.ensure_future(main, loop=loop)

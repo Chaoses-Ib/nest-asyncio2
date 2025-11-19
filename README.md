@@ -42,6 +42,40 @@ or not. Only event loops from asyncio can be patched;
 Loops from other projects, such as uvloop or quamash,
 generally can't be patched.
 
+## Examples
+### [aiohttp](https://github.com/aio-libs/aiohttp)
+```py
+# /// script
+# requires-python = ">=3.5"
+# dependencies = [
+#     "aiohttp",
+#     "nest-asyncio2",
+# ]
+# ///
+import asyncio
+import nest_asyncio2
+import aiohttp
+
+nest_asyncio2.apply()
+
+async def f_async():
+    # Note that ClientSession must be created and used
+    # in the same event loop (under the same asyncio.run())
+    async with aiohttp.ClientSession() as session:
+        async with session.get('http://httpbin.org/get') as resp:
+            print(resp.status)
+            print(await resp.text())
+            assert resp.status == 200
+
+# async to sync
+def f():
+    asyncio.run(f_async())
+
+async def main():
+    f()
+asyncio.run(main())
+```
+
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
 - Python 3.12 support
