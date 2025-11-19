@@ -83,7 +83,8 @@ def _patch_asyncio():
     if sys.version_info < (3, 7, 0):
         asyncio.tasks._current_tasks = asyncio.tasks.Task._current_tasks
         asyncio.all_tasks = asyncio.tasks.Task.all_tasks
-    if sys.version_info >= (3, 9, 0):
+    # The same as asyncio.get_event_loop() on at least Python 3.14
+    if sys.version_info >= (3, 9, 0) and sys.version_info < (3, 14, 0):
         events._get_event_loop = events.get_event_loop = \
             asyncio.get_event_loop = _get_event_loop
     asyncio.run = run
@@ -93,6 +94,11 @@ def _patch_asyncio():
 def _patch_policy():
     """Patch the policy to always return a patched loop."""
 
+    # Removed in Python 3.16
+    # https://github.com/python/cpython/issues/127949
+    if sys.version_info >= (3, 16, 0):
+        return
+
     def get_event_loop(self):
         if self._local._loop is None:
             loop = self.new_event_loop()
@@ -100,7 +106,10 @@ def _patch_policy():
             self.set_event_loop(loop)
         return self._local._loop
 
-    policy = events.get_event_loop_policy()
+    if sys.version_info < (3, 14, 0):
+        policy = events.get_event_loop_policy()
+    else:
+        policy = events._get_event_loop_policy()
     policy.__class__.get_event_loop = get_event_loop
 
 

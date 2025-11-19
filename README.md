@@ -45,6 +45,8 @@ generally can't be patched.
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
 - Python 3.12 `loop_factory` parameter support
-- Python 3.14 support (`asyncio.current_task()` and others are broken in `nest_asyncio`)
+- Python 3.14 support
+  - Fix broken `asyncio.current_task()` and others
+  - Fix `DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16`
 
 All interfaces are kept as they are. To migrate, you just need to change the package and module name to `nest_asyncio2`.

@@ -7,6 +7,9 @@
 # [tool.uv.sources]
 # nest-asyncio2 = { path = "../", editable = true }
 # ///
+import warnings
+warnings.filterwarnings("default")
+
 import asyncio
 import nest_asyncio2
 

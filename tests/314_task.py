@@ -7,10 +7,15 @@
 # [tool.uv.sources]
 # nest-asyncio2 = { path = "../", editable = true }
 # ///
+import warnings
+warnings.filterwarnings("default")
+
 import asyncio
 import nest_asyncio2
 
-nest_asyncio2.apply()
+with warnings.catch_warnings(record=True) as w:
+    nest_asyncio2.apply()
+    assert len(w) == 0, w
 
 async def f():
     print(asyncio.get_running_loop())
@@ -28,4 +33,6 @@ async def f():
     print(asyncio.tasks._current_tasks)
     # assert asyncio.tasks._current_tasks == {}
 
-asyncio.run(f())
+with warnings.catch_warnings(record=True) as w:
+    asyncio.run(f())
+    assert len(w) == 0, w
