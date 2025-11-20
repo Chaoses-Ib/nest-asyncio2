@@ -10,11 +10,30 @@ from heapq import heappop
 
 _run_close_loop = True
 
-def apply(loop=None, *, run_close_loop: bool = False):
-    """Patch asyncio to make its event loop reentrant."""
+class _NestAsyncio2:
+    '''Internal class of `nest_asyncio2`.
+     
+    Mainly for holding the original properties to support unapply() and nest_asyncio2.run().
+    '''
+    pass
+
+def apply(
+    loop=None,
+    *,
+    run_close_loop: bool = False,
+    error_on_mispatched: bool = False,
+):
+    '''Patch asyncio to make its event loop reentrant.
+    
+    - `run_close_loop`: Close the event loop created by `asyncio.run()`, if any.
+      See README for details.
+    - `error_on_mispatched`:
+      - `False` (default): Warn if asyncio is already patched by `nest_asyncio` on Python 3.12+.
+      - `True`: Raise `RuntimeError` if asyncio is already patched by `nest_asyncio`.
+    '''
     global _run_close_loop
     
-    _patch_asyncio()
+    _patch_asyncio(error_on_mispatched=error_on_mispatched)
     _patch_policy()
     _patch_tornado()
 
@@ -106,7 +125,7 @@ else:
                 # Avoid ResourceWarning: unclosed event loop
                 loop.close()
 
-def _patch_asyncio():
+def _patch_asyncio(*, error_on_mispatched: bool = False):
     """Patch asyncio module to use pure Python tasks and futures."""
 
     def _get_event_loop(stacklevel=3):
@@ -117,6 +136,12 @@ def _patch_asyncio():
 
     # Use module level _current_tasks, all_tasks and patch run method.
     if hasattr(asyncio, '_nest_patched'):
+        if not hasattr(asyncio, '_nest_asyncio2'):
+            if error_on_mispatched:
+                raise RuntimeError('asyncio is already patched by nest_asyncio')
+            elif sys.version_info >= (3, 12, 0):
+                import warnings
+                warnings.warn('asyncio is already patched by nest_asyncio. You may encounter bugs related to asyncio')
         return
     
     # Using _PyTask on Python 3.14+ will break current_task() (and all_tasks(),
@@ -138,6 +163,7 @@ def _patch_asyncio():
             asyncio.get_event_loop = _get_event_loop
     asyncio.run = run
     asyncio._nest_patched = True
+    asyncio._nest_asyncio2 = _NestAsyncio2()
 
 
 def _patch_policy():
@@ -310,6 +336,7 @@ def _patch_loop(loop):
     curr_tasks = asyncio.tasks._current_tasks \
         if sys.version_info >= (3, 7, 0) else asyncio.Task._current_tasks
     cls._nest_patched = True
+    cls._nest_asyncio2 = _NestAsyncio2()
 
 
 def _patch_tornado():

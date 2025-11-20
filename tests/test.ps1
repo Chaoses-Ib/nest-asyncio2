@@ -18,6 +18,8 @@ function Test {
     }
 }
 
+Test -V @("3.11", "3.12", "3.13", "3.14") -Py mispatched.py
+
 # uv run --python 3.5 nest_test.py
 uv run --python 3.8 nest_test.py
 if (!$?) {
