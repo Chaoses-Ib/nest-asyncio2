@@ -76,13 +76,49 @@ async def main():
 asyncio.run(main())
 ```
 
+## Known issues
+### Leaked loop
+> [!TIP]
+> TL;DR: Usually you don't need to worry about this.
+> The biggest side effect is a `ResourceWarning: unclosed event loop` at exit on Python 3.12+ that is hidden by default.
+
+If there is no existing event loop, patched `asyncio.run()` will create one but not close it afterwards.
+It will be reused later, so there will be at most one leaked loop.
+
+`asyncio.run()` will always create and close the loop.
+But `nest_asyncio` (by accident or intentionally) missed it.
+As changing this behavior will break existing projects (e.g.
+[ComfyScript](https://github.com/Chaoses-Ib/ComfyScript/issues/117),
+[pyvista](https://github.com/pyvista/pyvista/issues/7938)),
+`nest-asyncio2` follows this behavior.
+
+This will cause a `ResourceWarning: unclosed event loop` at exit on Python 3.12+,
+although it is hidden by default.
+(Note that if you call `asyncio.get_event_loop()` on the main thread without setting the loop before,
+`ResourceWarning` is expected on Python 3.12~3.13, not caused by `nest-asyncio2`.)
+
+If you want to follow `asyncio.run()`'s behavior and get rid of the `ResourceWarning`,
+you can set `run_close_loop=True` for all `apply()`:
+```py
+nest_asyncio2.apply(run_close_loop=True)
+```
+Or pass `loop_factory` to `asyncio.run()` on Python 3.12+:
+```py
+asyncio.run(..., loop_factory=asyncio.new_event_loop)
+```
+
+`nest-asyncio2` v2 may change `run_close_loop` to be enalbed by default.
+
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
+- Support setting `run_close_loop` to avoid [leaked loop](#leaked-loop)
 - Python 3.12 support
   - `loop_factory` parameter support
+<!--
   - Fix `ResourceWarning: unclosed event loop` at exit
 
     Note that if you call `asyncio.get_event_loop()` on the main thread without setting the loop before, `ResourceWarning` is expected on Python 3.12~3.13, not caused by `nest-asyncio2`.
+-->
 - Python 3.14 support
   - Fix broken `asyncio.current_task()` and others
   - Fix `DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16`

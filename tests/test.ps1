@@ -11,7 +11,7 @@ function Test {
         # Catch ResourceWarning: unclosed event loop
         $out = uv run --python $v $Py 2>&1
         Write-Output $out
-        if (!$? -or $out -match "Warning") {
+        if (!$? -or $out -match 'Warning(?!: unclosed event loop)') {
             throw "$Py on $v : $out"
         }
         Write-Host
@@ -61,5 +61,8 @@ Test -V @("3.12", "3.13", "3.14") -Py 314_task.py
 Test -V @("3.12", "3.13", "3.14") -Py 314_task_mix.py
 
 Test -V @("3.11", "3.12", "3.13", "3.14") -Py 312_aiohttp.py
+
+# Passes even `run_close_loop=True`, but more tests wouldn't hurt anyway
+Test -V @("3.13") -Py 312_pyvista.py
 
 popd

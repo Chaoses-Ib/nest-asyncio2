@@ -8,9 +8,12 @@ import threading
 from contextlib import contextmanager, suppress
 from heapq import heappop
 
+_run_close_loop = True
 
-def apply(loop=None):
+def apply(loop=None, *, run_close_loop: bool = False):
     """Patch asyncio to make its event loop reentrant."""
+    global _run_close_loop
+    
     _patch_asyncio()
     _patch_policy()
     _patch_tornado()
@@ -18,6 +21,8 @@ def apply(loop=None):
     loop = loop or _get_event_loop()
     if loop is not None:
         _patch_loop(loop)
+
+    _run_close_loop &= run_close_loop
 
 if sys.version_info < (3, 12, 0):
     def _get_event_loop():
@@ -66,14 +71,23 @@ else:
             #         loop = loop_factory()
             # else:
             #     loop = loop_factory()
-            if loop_factory is None:
-                loop = asyncio.new_event_loop()
+            if not _run_close_loop:
                 # Not running
-                set_event_loop = _get_event_loop()
-                asyncio.set_event_loop(loop)
+                loop = _get_event_loop()
+                if loop is None:
+                    if loop_factory is None:
+                        loop_factory = asyncio.new_event_loop
+                    loop = loop_factory()
+                    asyncio.set_event_loop(loop)
             else:
-                loop = loop_factory()
-            new_event_loop = True
+                if loop_factory is None:
+                    loop = asyncio.new_event_loop()
+                    # Not running
+                    set_event_loop = _get_event_loop()
+                    asyncio.set_event_loop(loop)
+                else:
+                    loop = loop_factory()
+                new_event_loop = True
         _patch_loop(loop)
 
         loop.set_debug(debug)
