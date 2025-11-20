@@ -21,7 +21,7 @@ def apply(
     loop=None,
     *,
     run_close_loop: bool = False,
-    error_on_mispatched: bool = False,
+    error_on_mispatched: bool = False
 ):
     '''Patch asyncio to make its event loop reentrant.
     
