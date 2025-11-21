@@ -77,7 +77,7 @@ asyncio.run(main())
 ```
 
 ## Known issues
-### Leaked loop
+### Leaked event loop
 > [!TIP]
 > TL;DR: Usually you don't need to worry about this.
 > The biggest side effect is a `ResourceWarning: unclosed event loop` at exit on Python 3.12+ that is hidden by default.
@@ -107,11 +107,11 @@ Or pass `loop_factory` to `asyncio.run()` on Python 3.12+:
 asyncio.run(..., loop_factory=asyncio.new_event_loop)
 ```
 
-`nest-asyncio2` v2 may change `run_close_loop` to be enalbed by default.
+`nest-asyncio2` v2 may change `run_close_loop` to be enabled by default.
 
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
-- Support setting `run_close_loop` to avoid [leaked loop](#leaked-loop)
+- Support setting `run_close_loop` to avoid [leaked event loop](#leaked-event-loop).
 - Python 3.12 support
   - `loop_factory` parameter support
 <!--
@@ -122,5 +122,14 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
 - Python 3.14 support
   - Fix broken `asyncio.current_task()` and others
   - Fix `DeprecationWarning: 'asyncio.get_event_loop_policy' is deprecated and slated for removal in Python 3.16`
+- To avoid potential bugs,
+  `apply()` will warn if `asyncio` is already patched
+  by `nest_asyncio` on Python 3.12+.
+
+  You can also set `error_on_mispatched=True` to
+  turn the warning into a `RuntimeError`, regardless of the Python version.
+  See [#1](https://github.com/Chaoses-Ib/nest-asyncio2/issues/1) for details.
+
+There is no behavior change on Python < 3.12.
 
 All interfaces are kept as they are. To migrate, you just need to change the package and module name to `nest_asyncio2`.
