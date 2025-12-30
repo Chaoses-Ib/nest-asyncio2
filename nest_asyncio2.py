@@ -5,34 +5,33 @@ import asyncio.events as events
 import os
 import sys
 import threading
+import types
 from contextlib import contextmanager, suppress
 from heapq import heappop
 
 _run_close_loop = True
 
+
 class _NestAsyncio2:
-    '''Internal class of `nest_asyncio2`.
-     
+    """Internal class of `nest_asyncio2`.
+
     Mainly for holding the original properties to support unapply() and nest_asyncio2.run().
-    '''
+    """
+
     pass
 
-def apply(
-    loop=None,
-    *,
-    run_close_loop: bool = False,
-    error_on_mispatched: bool = False
-):
-    '''Patch asyncio to make its event loop reentrant.
-    
+
+def apply(loop=None, *, run_close_loop: bool = False, error_on_mispatched: bool = False):
+    """Patch asyncio to make its event loop reentrant.
+
     - `run_close_loop`: Close the event loop created by `asyncio.run()`, if any.
       See README for details.
     - `error_on_mispatched`:
       - `False` (default): Warn if asyncio is already patched by `nest_asyncio` on Python 3.12+.
       - `True`: Raise `RuntimeError` if asyncio is already patched by `nest_asyncio`.
-    '''
+    """
     global _run_close_loop
-    
+
     _patch_asyncio(error_on_mispatched=error_on_mispatched)
     _patch_policy()
     _patch_tornado()
@@ -41,12 +40,23 @@ def apply(
     if loop is not None:
         _patch_loop(loop)
 
+    # Also patch the running loop if different
+    try:
+        running_loop = asyncio.get_running_loop()
+        if running_loop is not loop:
+            _patch_loop(running_loop)
+    except RuntimeError:
+        pass  # No running loop
+
     _run_close_loop &= run_close_loop
 
+
 if sys.version_info < (3, 12, 0):
+
     def _get_event_loop():
         return asyncio.get_event_loop()
 elif sys.version_info < (3, 14, 0):
+
     def _get_event_loop():
         # Python 3.12~3.13:
         # Calling get_event_loop() will result in ResourceWarning: unclosed event loop
@@ -56,6 +66,7 @@ elif sys.version_info < (3, 14, 0):
             loop = policy._local._loop
         return loop
 else:
+
     def _get_event_loop():
         # Python 3.14: Raises a RuntimeError if there is no current event loop.
         try:
@@ -63,7 +74,9 @@ else:
         except RuntimeError:
             return None
 
-if sys.version_info < (3, 12, 0):    
+
+if sys.version_info < (3, 12, 0):
+
     def run(main, *, debug=False):
         loop = asyncio.get_event_loop()
         loop.set_debug(debug)
@@ -76,6 +89,7 @@ if sys.version_info < (3, 12, 0):
                 with suppress(asyncio.CancelledError):
                     loop.run_until_complete(task)
 else:
+
     def run(main, *, debug=False, loop_factory=None):
         new_event_loop = False
         set_event_loop = None
@@ -125,6 +139,7 @@ else:
                 # Avoid ResourceWarning: unclosed event loop
                 loop.close()
 
+
 def _patch_asyncio(*, error_on_mispatched: bool = False):
     """Patch asyncio module to use pure Python tasks and futures."""
 
@@ -135,32 +150,34 @@ def _patch_asyncio(*, error_on_mispatched: bool = False):
         return loop
 
     # Use module level _current_tasks, all_tasks and patch run method.
-    if hasattr(asyncio, '_nest_patched'):
-        if not hasattr(asyncio, '_nest_asyncio2'):
+    if hasattr(asyncio, "_nest_patched"):
+        if not hasattr(asyncio, "_nest_asyncio2"):
             if error_on_mispatched:
-                raise RuntimeError('asyncio is already patched by nest_asyncio')
+                raise RuntimeError("asyncio is already patched by nest_asyncio")
             elif sys.version_info >= (3, 12, 0):
                 import warnings
-                warnings.warn('asyncio is already patched by nest_asyncio. You may encounter bugs related to asyncio')
+
+                warnings.warn(
+                    "asyncio is already patched by nest_asyncio. You may encounter bugs related to asyncio"
+                )
         return
-    
+
     # Using _PyTask on Python 3.14+ will break current_task() (and all_tasks(),
     # _swap_current_task())
     # Even we replace it with _py_current_task(), it only works with _PyTask, but
     # the external loop is probably using _CTask.
     # https://github.com/python/cpython/pull/129899
     if sys.version_info >= (3, 6, 0) and sys.version_info < (3, 14, 0):
-        asyncio.Task = asyncio.tasks._CTask = asyncio.tasks.Task = \
-            asyncio.tasks._PyTask
-        asyncio.Future = asyncio.futures._CFuture = asyncio.futures.Future = \
+        asyncio.Task = asyncio.tasks._CTask = asyncio.tasks.Task = asyncio.tasks._PyTask
+        asyncio.Future = asyncio.futures._CFuture = asyncio.futures.Future = (
             asyncio.futures._PyFuture
+        )
     if sys.version_info < (3, 7, 0):
         asyncio.tasks._current_tasks = asyncio.tasks.Task._current_tasks
         asyncio.all_tasks = asyncio.tasks.Task.all_tasks
     # The same as asyncio.get_event_loop() on at least Python 3.14
     if sys.version_info >= (3, 9, 0) and sys.version_info < (3, 14, 0):
-        events._get_event_loop = events.get_event_loop = \
-            asyncio.get_event_loop = _get_event_loop
+        events._get_event_loop = events.get_event_loop = asyncio.get_event_loop = _get_event_loop
     asyncio.run = run
     asyncio._nest_patched = True
     asyncio._nest_asyncio2 = _NestAsyncio2()
@@ -213,8 +230,7 @@ def _patch_loop(loop):
                 if self._stopping:
                     break
             if not f.done():
-                raise RuntimeError(
-                    'Event loop stopped before Future completed.')
+                raise RuntimeError("Event loop stopped before Future completed.")
             return f.result()
 
     def _run_once(self):
@@ -228,10 +244,12 @@ def _patch_loop(loop):
             heappop(scheduled)
 
         timeout = (
-            0 if ready or self._stopping
-            else min(max(
-                scheduled[0]._when - self.time(), 0), 86400) if scheduled
-            else None)
+            0
+            if ready or self._stopping
+            else min(max(scheduled[0]._when - self.time(), 0), 86400)
+            if scheduled
+            else None
+        )
         event_list = self._selector.select(timeout)
         self._process_events(event_list)
 
@@ -240,10 +258,15 @@ def _patch_loop(loop):
             handle = heappop(scheduled)
             ready.append(handle)
 
-        for _ in range(len(ready)):
+        ntodo = len(ready)
+        for _ in range(ntodo):
             if not ready:
                 break
-            handle = ready.popleft()
+            try:
+                handle = ready.popleft()
+            except IndexError:
+                # Queue was emptied by another task/callback
+                break
             if not handle._cancelled:
                 # preempt the current task so that that checks in
                 # Task.__step do not raise
@@ -258,6 +281,11 @@ def _patch_loop(loop):
 
                 try:
                     handle._run()
+                except Exception:
+                    # Don't let one handler crash the whole loop
+                    import traceback
+
+                    traceback.print_exc()
                 finally:
                     # restore the current task
                     if curr_task is not None:
@@ -288,8 +316,7 @@ def _patch_loop(loop):
             events._set_running_loop(old_running_loop)
             self._num_runs_pending -= 1
             if self._is_proactorloop:
-                if (self._num_runs_pending == 0
-                        and self._self_reading_future is not None):
+                if self._num_runs_pending == 0 and self._self_reading_future is not None:
                     ov = self._self_reading_future._ov
                     self._self_reading_future.cancel()
                     if ov is not None:
@@ -298,16 +325,17 @@ def _patch_loop(loop):
 
     @contextmanager
     def manage_asyncgens(self):
-        if not hasattr(sys, 'get_asyncgen_hooks'):
+        if not hasattr(sys, "get_asyncgen_hooks"):
             # Python version is too old.
+            yield
             return
         old_agen_hooks = sys.get_asyncgen_hooks()
         try:
             self._set_coroutine_origin_tracking(self._debug)
             if self._asyncgens is not None:
                 sys.set_asyncgen_hooks(
-                    firstiter=self._asyncgen_firstiter_hook,
-                    finalizer=self._asyncgen_finalizer_hook)
+                    firstiter=self._asyncgen_firstiter_hook, finalizer=self._asyncgen_finalizer_hook
+                )
             yield
         finally:
             self._set_coroutine_origin_tracking(False)
@@ -318,23 +346,37 @@ def _patch_loop(loop):
         """Do not throw exception if loop is already running."""
         pass
 
-    if hasattr(loop, '_nest_patched'):
+    if hasattr(loop, "_nest_patched"):
         return
     if not isinstance(loop, asyncio.BaseEventLoop):
-        raise ValueError('Can\'t patch loop of type %s' % type(loop))
+        raise ValueError("Can't patch loop of type %s" % type(loop))
+
+    # Patch INSTANCE methods directly for Python 3.12+
+    # This ensures our methods are used even with C-extension event loops
+    loop.run_forever = types.MethodType(run_forever, loop)
+    loop.run_until_complete = types.MethodType(run_until_complete, loop)
+    loop._run_once = types.MethodType(_run_once, loop)
+    loop._check_running = types.MethodType(_check_running, loop)
+
+    # Also patch the class for new instances
     cls = loop.__class__
     cls.run_forever = run_forever
     cls.run_until_complete = run_until_complete
     cls._run_once = _run_once
     cls._check_running = _check_running
     cls._check_runnung = _check_running  # typo in Python 3.7 source
-    cls._num_runs_pending = 1 if loop.is_running() else 0
-    cls._is_proactorloop = (
-        os.name == 'nt' and issubclass(cls, asyncio.ProactorEventLoop))
+
+    # Set as instance attribute, not class attribute
+    if not hasattr(loop, "_num_runs_pending"):
+        loop._num_runs_pending = 1 if loop.is_running() else 0
+    cls._is_proactorloop = os.name == "nt" and issubclass(cls, asyncio.ProactorEventLoop)
     if sys.version_info < (3, 7, 0):
         cls._set_coroutine_origin_tracking = cls._set_coroutine_wrapper
-    curr_tasks = asyncio.tasks._current_tasks \
-        if sys.version_info >= (3, 7, 0) else asyncio.Task._current_tasks
+    curr_tasks = (
+        asyncio.tasks._current_tasks
+        if sys.version_info >= (3, 7, 0)
+        else asyncio.Task._current_tasks
+    )
     cls._nest_patched = True
     cls._nest_asyncio2 = _NestAsyncio2()
 
@@ -344,8 +386,33 @@ def _patch_tornado():
     If tornado is imported before nest_asyncio, make tornado aware of
     the pure-Python asyncio Future.
     """
-    if 'tornado' in sys.modules:
+    if "tornado" not in sys.modules:
+        return
+
+    try:
         import tornado.concurrent as tc  # type: ignore
+
         tc.Future = asyncio.Future
         if asyncio.Future not in tc.FUTURES:
             tc.FUTURES += (asyncio.Future,)
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch tornado's IOLoop to use our patched methods
+    try:
+        from tornado.platform.asyncio import AsyncIOMainLoop, BaseAsyncIOLoop
+
+        original_start = BaseAsyncIOLoop.start
+
+        def patched_start(self):
+            # Ensure the asyncio loop is patched before starting
+            asyncio_loop = self.asyncio_loop
+            if not hasattr(asyncio_loop, "_nest_patched"):
+                _patch_loop(asyncio_loop)
+            return original_start(self)
+
+        if not hasattr(BaseAsyncIOLoop, "_nest_tornado_patched"):
+            BaseAsyncIOLoop.start = patched_start
+            BaseAsyncIOLoop._nest_tornado_patched = True
+    except (ImportError, AttributeError):
+        pass
