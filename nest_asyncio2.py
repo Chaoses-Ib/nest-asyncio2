@@ -41,12 +41,9 @@ def apply(loop=None, *, run_close_loop: bool = False, error_on_mispatched: bool 
         _patch_loop(loop)
 
     # Also patch the running loop if different
-    try:
-        running_loop = asyncio.get_running_loop()
-        if running_loop is not loop:
-            _patch_loop(running_loop)
-    except RuntimeError:
-        pass  # No running loop
+    running_loop = events._get_running_loop()
+    if running_loop is not None and running_loop is not loop:
+        _patch_loop(running_loop)
 
     _run_close_loop &= run_close_loop
 
