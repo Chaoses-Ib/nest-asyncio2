@@ -346,10 +346,15 @@ def _patch_loop(loop):
         """Do not throw exception if loop is already running."""
         pass
 
-    if hasattr(loop, "_nest_patched"):
-        return
     if not isinstance(loop, asyncio.BaseEventLoop):
         raise ValueError("Can't patch loop of type %s" % type(loop))
+
+    # Always ensure _num_runs_pending is set on the instance, even if class was already patched
+    if not hasattr(loop, "_num_runs_pending"):
+        loop._num_runs_pending = 1 if loop.is_running() else 0
+
+    if hasattr(loop, "_nest_patched"):
+        return
 
     # Patch INSTANCE methods directly for Python 3.12+
     # This ensures our methods are used even with C-extension event loops
@@ -366,9 +371,6 @@ def _patch_loop(loop):
     cls._check_running = _check_running
     cls._check_runnung = _check_running  # typo in Python 3.7 source
 
-    # Set as instance attribute, not class attribute
-    if not hasattr(loop, "_num_runs_pending"):
-        loop._num_runs_pending = 1 if loop.is_running() else 0
     cls._is_proactorloop = os.name == "nt" and issubclass(cls, asyncio.ProactorEventLoop)
     if sys.version_info < (3, 7, 0):
         cls._set_coroutine_origin_tracking = cls._set_coroutine_wrapper
