@@ -113,6 +113,27 @@ class NestTest(unittest.TestCase):
         result = self.loop.run_until_complete(coro())
         self.assertEqual(result, 42)
 
+    @unittest.skipIf(sys.version_info < (3, 11, 0), 'No create_task(context=)')
+    def test_shared_context(self):
+        # Tasks sharing one Context, as ipykernel >= 7 does for all cells
+        from contextvars import copy_context
+        context = copy_context()
+
+        async def inner():
+            return 42
+
+        async def outer():
+            task = self.loop.create_task(inner(), context=context)
+            # the nested run must not drop the first step of ``task``
+            self.loop.run_until_complete(self.coro())
+            return task
+
+        task = self.loop.run_until_complete(
+            self.loop.create_task(outer(), context=context))
+        self.loop.run_until_complete(self.coro())
+        self.assertTrue(task.done())
+        self.assertEqual(task.result(), 42)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -192,6 +192,18 @@ def _patch_policy():
     policy.__class__.get_event_loop = get_event_loop
 
 
+def _context_entered(context):
+    """Return True if ``context`` is already entered (and so cannot be run)."""
+    if context is None:  # Python < 3.7 handles have no Context
+        return False
+    try:
+        # Context has no public "entered" flag; running a no-op (int) is the easy check
+        context.run(int)
+    except RuntimeError:
+        return True
+    return False
+
+
 def _patch_loop(loop):
     """Patch loop to make it reentrant."""
 
@@ -257,6 +269,17 @@ def _patch_loop(loop):
                 break
             handle = ready.popleft()
             if not handle._cancelled:
+                if _context_entered(getattr(handle, '_context', None)):
+                    # The handle's Context is entered further up the stack (e.g.,
+                    # ipykernel >= 7 runs every cell in one shared Context), so
+                    # running it now would raise; defer it until this nested run
+                    # exits.
+                    deferred = self._nest_deferred
+                    if deferred is None:
+                        ready.append(handle)
+                    else:
+                        deferred.append(handle)
+                    continue
                 # preempt the current task so that that checks in
                 # Task.__step do not raise
                 if sys.version_info < (3, 14, 0):
@@ -287,6 +310,8 @@ def _patch_loop(loop):
         self._check_closed()
         old_thread_id = self._thread_id
         old_running_loop = events._get_running_loop()
+        old_deferred = self._nest_deferred
+        self._nest_deferred = []
         try:
             self._thread_id = threading.get_ident()
             events._set_running_loop(self)
@@ -296,6 +321,8 @@ def _patch_loop(loop):
                     self.call_soon(self._loop_self_reading)
             yield
         finally:
+            self._ready.extendleft(reversed(self._nest_deferred))
+            self._nest_deferred = old_deferred
             self._thread_id = old_thread_id
             events._set_running_loop(old_running_loop)
             self._num_runs_pending -= 1
@@ -347,6 +374,7 @@ def _patch_loop(loop):
         cls._set_coroutine_origin_tracking = cls._set_coroutine_wrapper
     curr_tasks = asyncio.tasks._current_tasks \
         if sys.version_info >= (3, 7, 0) else asyncio.Task._current_tasks
+    cls._nest_deferred = None
     cls._nest_patched = True
     cls._nest_asyncio2 = _NestAsyncio2()
 
