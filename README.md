@@ -112,6 +112,14 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
 ## Comparison with `nest_asyncio`
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
 - Support setting `run_close_loop` to avoid [leaked event loop](#leaked-event-loop).
+
+- Python 3.11 support
+  - Fix context may be re-entered and cause `RuntimeError: cannot enter context`
+    ([#4](https://github.com/Chaoses-Ib/nest-asyncio2/pull/4)).
+    
+    This, for example, would break `jupyter notebook` with `ipykernel` v7.
+    Though `ipython -c`, `jupyter execute` and VS Code work fine.
+
 - Python 3.12 support
   - `loop_factory` parameter support
 <!--
