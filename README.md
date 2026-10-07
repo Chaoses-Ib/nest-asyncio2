@@ -117,6 +117,9 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
   - Fix async generator hooks are not called during `run()` (but only in `run_forever()`),
     and can't get finalized. ([#5](https://github.com/Chaoses-Ib/nest-asyncio2/issues/5))
 
+  - Fix `run_forever()` is broken on Python 3.5.
+     ([#5](https://github.com/Chaoses-Ib/nest-asyncio2/issues/5))
+
 - Python 3.11 support
   - Fix context may be re-entered and cause `RuntimeError: cannot enter context`
     ([#4](https://github.com/Chaoses-Ib/nest-asyncio2/pull/4)).
