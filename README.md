@@ -113,6 +113,10 @@ asyncio.run(..., loop_factory=asyncio.new_event_loop)
 `nest-asyncio2` is a fork of the unmaintained [`nest_asyncio`](https://github.com/erdewit/nest_asyncio), with the following changes:
 - Support setting `run_close_loop` to avoid [leaked event loop](#leaked-event-loop).
 
+- Python 3.6 support
+  - Fix async generator hooks are not called during `run()` (but only in `run_forever()`),
+    and can't get finalized. ([#5](https://github.com/Chaoses-Ib/nest-asyncio2/issues/5))
+
 - Python 3.11 support
   - Fix context may be re-entered and cause `RuntimeError: cannot enter context`
     ([#4](https://github.com/Chaoses-Ib/nest-asyncio2/pull/4)).

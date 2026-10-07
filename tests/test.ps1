@@ -61,6 +61,7 @@ if (!$?) {
 
 Test -V @("3.12", "3.13", "3.14") -Py 314_task.py
 Test -V @("3.12", "3.13", "3.14") -Py 314_task_mix.py
+Test -V @("3.6", "3.11", "3.14") -Py 36_asyncgen_hooks.py
 
 Test -V @("3.11", "3.12", "3.13", "3.14") -Py 312_aiohttp.py
 

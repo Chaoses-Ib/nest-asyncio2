@@ -216,7 +216,10 @@ def _patch_loop(loop):
         self._stopping = False
 
     def run_until_complete(self, future):
-        with manage_run(self):
+        # https://github.com/Chaoses-Ib/nest-asyncio2/issues/5
+        # run_forever() got manage_asyncgens() but run_until_complete() only got manage_run() in the same commit,
+        # potential bugs?
+        with manage_run(self), manage_asyncgens(self):
             f = asyncio.ensure_future(future, loop=self)
             if f is not future:
                 f._log_destroy_pending = False
